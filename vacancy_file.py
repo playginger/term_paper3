@@ -1,81 +1,52 @@
 import json
-from abc import ABC, abstractmethod
-
+from abc import ABC
+from googletrans import Translator
 from vacancy import Vacancy
 
 
 class VacancyFile(ABC):
-    """
-    Абстрактный класс для работы с файлом вакансий.
-    """
+    """Абстрактный класс для работы с файлом вакансий."""
 
     def __init__(self, filename):
         self.filename = filename
 
-    # @abstractmethod
-    # def add_vacancy(self, vacancy):
-    #     """
-    #     Метод для добавления вакансии в файл.
-    #     :param vacancy: объект-экземпляр класса Vacancy.
-    #     """
-    #     pass
-    #
-    # @abstractmethod
-    # def get_vacancies(self, **kwargs):
-    #     """
-    #     Метод для получения списка вакансий из файла.
-    #     :param kwargs: критерии поиска вакансий.
-    #     :return: список вакансий в виде объектов-экземпляров класса Vacancy.
-    #     """
-    #     pass
-    #
-    # @abstractmethod
-    # def delete_vacancy(self, vacancy):
-    #     """
-    #     Метод для удаления вакансии из файла.
-    #     :param vacancy: объект-экземпляр класса Vacancy.
-    #     """
-    #     pass
-
     def dump_vac(self, vacs):
-        with open('vac.json', 'w') as f:
+        with open(self.filename, 'a', encoding='utf-8') as f:
             vacs = [vac.to_dict() for vac in vacs]
+            json.dump(vacs, f, ensure_ascii=False)
+            f.write('\n')  # добавляем перевод строки между вакансиями
 
-            json.dump(vacs, f)
 
-# class JsonVacancyFile(VacancyFile):
-#    """
-#    Класс для работы с JSON-файлом вакансий.
-#    """
-#
-#    def __init__(self, filename):
-#        super().__init__(filename)
-#
-#    def add_vacancy(self, vacancy):
-#        with open(self.filename, "a", encoding="utf-8") as f:
-#            json.dump(vacancy.__dict__, f, ensure_ascii=False)
-#
-#    def get_vacancies(self, **kwargs):
-#        vacancies = []
-#        with open(self.filename, "r", encoding="utf-8") as f:
-#            for line in f.readlines():
-#                data = json.loads(line)
-#                vacancies.append(Vacancy(**data))
-#        return vacancies
-#
-#    def delete_vacancy(self, vacancy):
-#        with open(self.filename, "r+", encoding="utf-8") as f:
-#            lines = f.readlines()
-#            f.seek(0)
-#            for line in lines:
-#                data = json.loads(line)
-#                if data != vacancy.__dict__:
-#                    f.write(line)
-#            f.truncate()
-#
-#    def dump_vac(self, vacs):
-#        with open('vac.json', 'w') as f:
-#            vacs = [vac.to_dict() for vac in vacs]
-#
-#            json.dump(vacs, f)
-#
+class JsonVacancyFile(VacancyFile):
+    """Класс для работы с JSON-файлом вакансий."""
+
+    def __init__(self, filename):
+        super().__init__(filename)
+
+    def add_vacancy(self, vacancy):
+        with open(self.filename, 'a', encoding='utf-8') as f:
+            vacancy_dict = vacancy.to_dict()
+            translator = Translator()
+            for key, value in list(vacancy_dict.items()):
+                value_ru = translator.translate(str(value), src='en', dest='ru').text
+                vacancy_dict[f'{key}_ru'] = value_ru
+            json.dump(vacancy_dict, f, ensure_ascii=False)
+            f.write('\n')  # добавляем перевод строки для следующей вакансии
+
+    def get_vacancies(self, **kwargs):
+        vacancies = []
+        with open(self.filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                data = json.loads(line)
+                vacancies.append(Vacancy(**data))
+        return vacancies
+
+    def delete_vacancy(self, vacancy):
+        with open(self.filename, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        with open(self.filename, 'w', encoding='utf-8') as f:
+            for line in lines:
+                data = json.loads(line)
+                if data != vacancy.to_dict():
+                    json.dump(data, f, ensure_ascii=False)
+                    f.write('\n')
